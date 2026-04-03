@@ -139,6 +139,16 @@ def init_db():
             notified INTEGER DEFAULT 0
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            expires_at DATETIME NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     # Migration: add activated to paid_users if it doesn't exist (for existing records)
     try:
         c.execute("ALTER TABLE paid_users ADD COLUMN activated INTEGER DEFAULT 0")
@@ -581,6 +591,102 @@ def login():
             flash('Invalid email or password', 'error')
 
     return render_template('login.html')
+
+
+@app.route('/forgot', methods=['GET', 'POST'])
+def forgot_password():
+    """Send a password reset email."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+
+        conn = get_db()
+        user = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
+        conn.close()
+
+        if user:
+            # Generate a secure reset token (32 bytes, base64url encoded)
+            import secrets as _secrets
+            import hashlib as _hashlib
+            reset_token = _secrets.token_urlsafe(32)
+            token_hash = _hashlib.sha256(reset_token.encode()).hexdigest()
+            expires_at = (datetime.now() + timedelta(hours=2)).isoformat()
+
+            conn = get_db()
+            conn.execute(
+                'INSERT INTO password_resets (email, token_hash, expires_at) VALUES (?, ?, ?)',
+                (email, token_hash, expires_at)
+            )
+            conn.commit()
+            conn.close()
+
+            reset_link = url_for('reset_password', token=reset_token, _external=True)
+            send_email(
+                email,
+                "Reset your InvoiceChase password",
+                f"""Hi,
+
+We received a request to reset your InvoiceChase password.
+
+Click here to set a new password:
+{reset_link}
+
+This link expires in 2 hours. If you didn't request a reset, ignore this email — your account is still secure.
+
+— The InvoiceChase Team
+"""
+            )
+            print(f"[FORGOT] Reset link sent to {email}: {reset_link}")
+
+        # Always say "check your email" to prevent email enumeration
+        flash("If that email is in our system, we've sent a reset link.", 'info')
+        return redirect(url_for('login'))
+
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Validate token and set new password."""
+    import hashlib as _hashlib
+    import secrets as _secrets
+
+    token_hash = _hashlib.sha256(token.encode()).hexdigest()
+
+    conn = get_db()
+    record = conn.execute(
+        'SELECT * FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > ?',
+        (token_hash, datetime.now().isoformat())
+    ).fetchone()
+    conn.close()
+
+    if not record:
+        flash('Reset link is invalid or has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        new_password = request.form.get('password', '')
+        confirm = request.form.get('confirm', '')
+
+        if not new_password or len(new_password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return render_template('reset_password.html', token=token)
+
+        if new_password != confirm:
+            flash('Passwords do not match.', 'error')
+            return render_template('reset_password.html', token=token)
+
+        new_hash = hash_password(new_password)
+
+        conn = get_db()
+        conn.execute('UPDATE users SET password_hash = ? WHERE email = ?', (new_hash, record['email']))
+        conn.execute('UPDATE password_resets SET used = 1 WHERE id = ?', (record['id'],))
+        conn.commit()
+        conn.close()
+
+        flash('Password updated! You can now log in with your new password.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
 
 @app.route('/logout')
 def logout():
