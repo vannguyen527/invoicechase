@@ -814,6 +814,7 @@ def support():
             flash('Subject and message are required', 'error')
             return render_template('support.html', user=user)
 
+        print(f"[SUPPORT DEBUG] user_id={session.get('user_id')}, email={email}, subject={subject[:30]}")
         conn = get_db()
         try:
             cur = conn.execute('''
@@ -821,6 +822,7 @@ def support():
                 VALUES (?, ?, ?, ?)
             ''', (session.get('user_id'), email, subject, body))
             ticket_id = cur.lastrowid
+            print(f"[SUPPORT DEBUG] ticket inserted, id={ticket_id}")
             conn.commit()
             conn.close()
         except Exception as e:
@@ -830,9 +832,15 @@ def support():
             flash(f'Database error: {e}', 'error')
             return render_template('support.html', user=user)
 
-        log_audit('ticket_created', user_id=session.get('user_id'),
-                  actor_email=email, target_type='ticket', target_id=ticket_id,
-                  metadata={'subject': subject}, ip_address=get_client_ip())
+        try:
+            log_audit('ticket_created', user_id=session.get('user_id'),
+                      actor_email=email, target_type='ticket', target_id=ticket_id,
+                      metadata={'subject': subject}, ip_address=get_client_ip())
+            print(f"[SUPPORT DEBUG] audit logged")
+        except Exception as e:
+            print(f"[AUDIT CALL ERROR] {e}")
+
+        print(f"[SUPPORT DEBUG] redirecting to support_tickets")
 
         flash(f'Thank you! Your message has been received. (Ticket #{ticket_id})', 'success')
         try:
