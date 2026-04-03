@@ -929,6 +929,17 @@ def webhook():
 def ping():
     return 'ok', 200
 
+# ---- Test Email (remove after verifying SMTP) ----
+@app.route('/test-email')
+def test_email():
+    test_to = request.args.get('to', FROM_EMAIL or 'your@email.com')
+    sent = send_email(
+        test_to,
+        "InvoiceChase SMTP test",
+        f"This is a test from InvoiceChase.\n\nSMTP_HOST: {SMTP_HOST}\nSMTP_PORT: {SMTP_PORT}\nSMTP_USER: {SMTP_USER}\nFROM_EMAIL: {FROM_EMAIL}\n\nIf you received this, email is working!"
+    )
+    return jsonify({'sent': sent, 'to': test_to}), 200
+
 # ---- Terms / Privacy ----
 @app.route('/terms')
 def terms():
