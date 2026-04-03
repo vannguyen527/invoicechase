@@ -310,64 +310,64 @@ def provision_paid_account(email, name=None, stripe_session_id=None):
     """
     import hashlib, secrets as _secrets
 
-    # Generate a strong random password
     temp_password = _secrets.token_urlsafe(12)
     password_hash = hashlib.sha256(temp_password.encode()).hexdigest()
 
     conn = get_db()
+    try:
+        # Check if already a paid subscriber
+        existing_pu = conn.execute(
+            'SELECT id, activated FROM paid_users WHERE email = ?', (email,)
+        ).fetchone()
 
-    # Check if already activated
-    existing = conn.execute(
-        'SELECT id, activated FROM paid_users WHERE email = ?', (email,)
-    ).fetchone()
+        # Check if user already exists in main users table
+        existing_user = conn.execute(
+            'SELECT id FROM users WHERE email = ?', (email,)
+        ).fetchone()
 
-    if existing and existing['activated']:
-        conn.close()
-        print(f"[PROVISION] Account already activated for {email}")
-        return None, None
-
-    # Check if user already exists in main users table (they registered before paying)
-    old_user = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-
-    if old_user:
-        # User already has an account — just mark as paid, no new account needed
-        if existing:
-            conn.execute('UPDATE paid_users SET activated=1, notified=1, stripe_session_id=? WHERE email=?',
-                        (stripe_session_id, email))
+        if existing_user:
+            uid = existing_user['id']
+            if existing_pu:
+                conn.execute('''
+                    UPDATE paid_users SET activated=1, notified=1,
+                    stripe_session_id=? WHERE email=?
+                ''', (stripe_session_id or '', email))
+            else:
+                conn.execute('''
+                    INSERT INTO paid_users (email, password_hash, name, stripe_session_id, activated, notified)
+                    VALUES (?, ?, ?, ?, 1, 1)
+                ''', (email, password_hash, name or '', stripe_session_id or ''))
             conn.commit()
-        conn.close()
-        print(f"[PROVISION] Existing user {email} marked as paid")
-        return old_user['id'], None  # No new credentials needed
+            conn.close()
+            print(f"[PROVISION] Existing user {email} marked as paid subscriber, uid={uid}")
+            return uid, None
 
-    # Create account
-    if existing:
-        conn.execute('''
-            UPDATE paid_users
-            SET password_hash=?, name=?, stripe_session_id=?, activated=1, notified=1
-            WHERE email=?
-        ''', (password_hash, name or '', stripe_session_id or '', email))
-    else:
-        conn.execute('''
-            INSERT INTO paid_users (email, password_hash, name, stripe_session_id, activated, notified)
-            VALUES (?, ?, ?, ?, 1, 1)
-        ''', (email, password_hash, name or '', stripe_session_id or ''))
-
-    user_id = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-
-    if not user_id:
-        # Actually create the user in the main users table
-        conn.execute('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
-                    (email, password_hash, name or ''))
+        # Create new user in main users table
+        conn.execute(
+            'INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
+            (email, password_hash, name or '')
+        )
         user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+
+        # Record in paid_users
+        if existing_pu:
+            conn.execute('''
+                UPDATE paid_users
+                SET password_hash=?, name=?, stripe_session_id=?, activated=1, notified=1
+                WHERE email=?
+            ''', (password_hash, name or '', stripe_session_id or '', email))
+        else:
+            conn.execute('''
+                INSERT INTO paid_users (email, password_hash, name, stripe_session_id, activated, notified)
+                VALUES (?, ?, ?, ?, 1, 1)
+            ''', (email, password_hash, name or '', stripe_session_id or ''))
+
         conn.commit()
-    else:
-        user_id = user_id[0]
+        conn.close()
 
-    conn.close()
-
-    # Send welcome email with credentials
-    welcome_subject = "Your InvoiceChase account is ready — here's how to log in"
-    welcome_body = f"""Hi{name + ',' if name else ''}
+        # Send welcome email
+        welcome_subject = "Your InvoiceChase account is ready — here's how to log in"
+        welcome_body = f"""Hi{name + ',' if name else ''}
 
 Your InvoiceChase account is now active. Here's your login:
 
@@ -387,10 +387,17 @@ Questions? Reply to this email or visit https://invoicechase.onrender.com/suppor
 
 — The InvoiceChase Team
 """
+        send_email(email, welcome_subject, welcome_body)
+        print(f"[PROVISION] Account created and welcome email sent to {email}")
+        return user_id, temp_password
 
-    send_email(email, welcome_subject, welcome_body)
-    print(f"[PROVISION] Account created and welcome email sent to {email}")
-    return user_id, temp_password
+    except Exception as e:
+        print(f"[PROVISION ERROR] {e}")
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return None, None
 
 
 def get_email_template(user_id, reminder_type):
@@ -564,7 +571,8 @@ def login():
             flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
-            print(f"[LOGIN] Failed — stored_hash={user['password_hash'][:20] if user else 'N/A'}... provided_hash={hash_password(password)[:20]}...")
+            stored_hash = user['password_hash'][:20] if user else 'N/A'
+            print(f"[LOGIN] Failed — stored_hash={stored_hash}... provided_hash={hash_password(password)[:20]}...")
             flash('Invalid email or password', 'error')
 
     return render_template('login.html')
