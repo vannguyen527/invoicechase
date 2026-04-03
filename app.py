@@ -29,11 +29,11 @@ app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 # Stripe
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_placeholder')
 stripe_pub_key = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_placeholder')
-PRICE_AMOUNT = int(os.environ.get('PRICE_AMOUNT', 2900))  # cents
+PRICE_AMOUNT = int(os.environ.get('PRICE_AMOUNT') or 2900)  # cents
 
 # Email (Gmail SMTP)
 SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
+SMTP_PORT = int(os.environ.get('SMTP_PORT') or 587)
 SMTP_USER = os.environ.get('SMTP_USER', '')
 SMTP_PASS = os.environ.get('SMTP_PASS', '')
 FROM_EMAIL = os.environ.get('FROM_EMAIL', SMTP_USER)
@@ -1201,5 +1201,5 @@ def admin_migrate():
 
 # ------------------------------------------------------------------
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT') or 5000)
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG') == '1')
