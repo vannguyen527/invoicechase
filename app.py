@@ -314,6 +314,7 @@ def _run_reminder_check():
 def check_and_send_reminders():
     now = datetime.now()
     conn = get_db()
+    print(f"[CRON DEBUG] now={now}, checking reminders...")
     reminders = conn.execute('''
         SELECT r.*, i.client_name, i.client_email, i.amount, i.due_date,
                i.description, i.status, u.name as user_name, u.email as user_email, i.user_id
@@ -324,6 +325,7 @@ def check_and_send_reminders():
         AND r.scheduled_for <= ?
         AND i.status = 'unpaid'
     ''', (now,)).fetchall()
+    print(f"[CRON DEBUG] found {len(reminders)} reminders to send")
     conn.close()
 
     for r in reminders:
