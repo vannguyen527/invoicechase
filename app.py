@@ -853,6 +853,7 @@ def mark_paid(invoice_id):
 
     user = get_current_user()
     user_email = user['email'] if user else None
+    user_name = user['name'] if user else None
     try:
         log_audit('invoice_marked_paid', user_id=session['user_id'],
                   actor_email=user_email,
@@ -867,10 +868,11 @@ def mark_paid(invoice_id):
     flash('Invoice marked as paid!', 'success')
 
     # Send receipt to debtor
-    send_email(
-        invoice['client_email'],
-        f"Payment Received — Invoice from {user['name'] or user['email']}",
-        f"""Hi {invoice['client_name']},
+    try:
+        send_email(
+            invoice['client_email'],
+            f"Payment Received — Invoice from {user_name or user_email}",
+            f"""Hi {invoice['client_name']},
 
 Payment has been received. Thank you!
 
@@ -882,9 +884,11 @@ Invoice Details:
 Paid on: {datetime.now().strftime('%Y-%m-%d')}
 
 Best regards,
-{user['name'] or user['email']}
+{user_name or user_email}
 """
-    )
+        )
+    except Exception as e:
+        print(f"[SEND RECEIPT ERROR] {e}")
 
     # Send confirmation to customer
     send_email(
