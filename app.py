@@ -1368,6 +1368,63 @@ def admin_migrate():
         return f'Migration failed: {e}', 500
 
 # ------------------------------------------------------------------
+@app.route('/admin/debug-login')
+def admin_debug_login():
+    """Debug: test login flow step by step."""
+    import traceback
+    email = request.args.get('email', '').strip().lower()
+    password = request.args.get('password', '')
+
+    results = []
+
+    try:
+        results.append(f"[1] hash_password works: {hash_password('test')[:20]}")
+    except Exception as e:
+        results.append(f"[1] hash_password FAILED: {e}")
+
+    try:
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        conn.close()
+        results.append(f"[2] DB query works: user={dict(user) if user else None}")
+    except Exception as e:
+        results.append(f"[2] DB query FAILED: {e}")
+        return "<br>".join(results)
+
+    if user and user['password_hash'] == hash_password(password):
+        try:
+            session['user_id'] = user['id']
+            results.append(f"[3] session set: {session.get('user_id')}")
+        except Exception as e:
+            results.append(f"[3] session set FAILED: {e}")
+            return "<br>".join(results)
+
+        try:
+            log_audit('user_login', user_id=user['id'], actor_email=email, ip_address=get_client_ip())
+            results.append("[4] log_audit succeeded")
+        except Exception as e:
+            results.append(f"[4] log_audit FAILED: {e}")
+            return "<br>".join(results)
+
+        try:
+            flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
+            results.append("[5] flash succeeded")
+        except Exception as e:
+            results.append(f"[5] flash FAILED: {e}")
+            return "<br>".join(results)
+
+        try:
+            redirect(url_for('dashboard'))
+            results.append("[6] redirect URL computed OK")
+        except Exception as e:
+            results.append(f"[6] redirect FAILED: {e}")
+
+        return "<br>".join(results)
+    else:
+        results.append(f"[FAIL] Password mismatch: stored={user['password_hash'][:20] if user else None}, provided={hash_password(password)[:20]}")
+        return "<br>".join(results)
+
+# ------------------------------------------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get('PORT') or 5000)
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG') == '1')
