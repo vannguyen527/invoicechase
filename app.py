@@ -204,18 +204,20 @@ def get_client_ip():
 
 def log_audit(event_type, user_id=None, actor_email=None, target_type=None,
               target_id=None, metadata=None, ip_address=None):
-    """Write an audit log entry. metadata should be a dict."""
+    """Write an audit log entry. metadata should be a dict. Never crashes."""
     try:
         import json
         meta_str = json.dumps(metadata) if metadata is not None else None
         conn = get_db()
-        conn.execute('''
-            INSERT INTO audit_log (event_type, user_id, actor_email, target_type,
-                                   target_id, metadata, ip_address)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (event_type, user_id, actor_email, target_type, target_id, meta_str, ip_address))
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute('''
+                INSERT INTO audit_log (event_type, user_id, actor_email, target_type,
+                                       target_id, metadata, ip_address)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (event_type, user_id, actor_email, target_type, target_id, meta_str, ip_address))
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         print(f"[AUDIT ERROR] {e}")
 
@@ -570,25 +572,29 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        password=request.form.get('password', '')
+    try:
+        if request.method == 'POST':
+            email = request.form.get('email', '').strip().lower()
+            password=request.form.get('password', '')
 
-        conn = get_db()
-        user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-        conn.close()
+            conn = get_db()
+            user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            conn.close()
 
-        print(f"[LOGIN] email={email}, user_found={user is not None}, user_dict={dict(user) if user else None}")
-        if user and user['password_hash'] == hash_password(password):
-            session['user_id'] = user['id']
-            log_audit('user_login', user_id=user['id'], actor_email=email,
-                      ip_address=get_client_ip())
-            flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            stored_hash = user['password_hash'][:20] if user else 'N/A'
-            print(f"[LOGIN] Failed — stored_hash={stored_hash}... provided_hash={hash_password(password)[:20]}...")
-            flash('Invalid email or password', 'error')
+            print(f"[LOGIN] email={email}, user_found={user is not None}, user_dict={dict(user) if user else None}")
+            if user and user['password_hash'] == hash_password(password):
+                session['user_id'] = user['id']
+                log_audit('user_login', user_id=user['id'], actor_email=email,
+                          ip_address=get_client_ip())
+                flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                stored_hash = user['password_hash'][:20] if user else 'N/A'
+                print(f"[LOGIN] Failed — stored_hash={stored_hash}... provided_hash={hash_password(password)[:20]}...")
+                flash('Invalid email or password', 'error')
+    except Exception as e:
+        print(f"[LOGIN ERROR] {e}")
+        flash('Something went wrong. Please try again.', 'error')
 
     return render_template('login.html')
 
@@ -690,15 +696,18 @@ def reset_password(token):
 
 @app.route('/logout')
 def logout():
-    user_id = session.get('user_id')
-    email = None
-    if user_id:
-        conn = get_db()
-        u = conn.execute('SELECT email FROM users WHERE id = ?', (user_id,)).fetchone()
-        if u:
-            email = u['email']
-        conn.close()
-    log_audit('user_logout', user_id=user_id, actor_email=email, ip_address=get_client_ip())
+    try:
+        user_id = session.get('user_id')
+        email = None
+        if user_id:
+            conn = get_db()
+            u = conn.execute('SELECT email FROM users WHERE id = ?', (user_id,)).fetchone()
+            if u:
+                email = u['email']
+            conn.close()
+        log_audit('user_logout', user_id=user_id, actor_email=email, ip_address=get_client_ip())
+    except Exception as e:
+        print(f"[LOGOUT AUDIT ERROR] {e}")
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
