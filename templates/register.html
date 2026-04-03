@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; --red: #ef4444; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 100%; max-width: 420px; }
+    .logo { font-weight: 800; font-size: 1.25rem; margin-bottom: 28px; text-align: center; }
+    .logo span { color: var(--accent); }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    p.sub { color: var(--text-dim); font-size: 0.88rem; margin-bottom: 28px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: #ccc; }
+    input { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--text-dim); }
+    .btn { width: 100%; padding: 13px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+    .btn:hover { background: var(--accent-dim); }
+    .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .flash { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; }
+    .flash.error { background: rgba(239,68,68,0.15); border: 1px solid var(--red); color: var(--red); }
+    .flash.success { background: rgba(34,197,94,0.15); border: 1px solid var(--accent); color: var(--accent); }
+    .flash.info { background: rgba(136,136,136,0.15); border: 1px solid var(--text-dim); color: var(--text-dim); }
+    .footer { text-align: center; margin-top: 20px; font-size: 0.82rem; color: var(--text-dim); }
+    .footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Invoice<span>Chase</span></div>
+    <h1>Create your account</h1>
+    <p class="sub">Start chasing payments in minutes.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" name="name" placeholder="Jane Smith" value="{{ request.form.name|default('') }}">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="you@example.com" required value="{{ request.form.email|default('') }}">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="Min. 8 characters" required>
+      </div>
+      <button type="submit" class="btn">Create Account →</button>
+    </form>
+
+    <div class="footer">
+      Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Templates — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; --red: #ef4444; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+    nav { padding: 18px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-weight: 800; font-size: 1.1rem; }
+    .logo span { color: var(--accent); }
+    .nav-right a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; margin-left: 16px; }
+    .page-header { padding: 32px 0 24px; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .page-header p { color: var(--text-dim); font-size: 0.88rem; }
+    .flash { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; }
+    .flash.success { background: rgba(34,197,94,0.15); border: 1px solid var(--accent); color: var(--accent); }
+
+    .template-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .template-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .template-header h2 { font-size: 1rem; font-weight: 700; }
+    .badge { font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+    .badge.d3 { background: rgba(34,197,94,0.15); color: var(--accent); }
+    .badge.d7 { background: rgba(245,158,11,0.15); color: var(--amber, #f59e0b); }
+    .badge.d14 { background: rgba(239,68,68,0.15); color: var(--red); }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+    input, textarea { width: 100%; padding: 10px 13px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.9rem; font-family: inherit; outline: none; transition: border-color 0.2s; }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 160px; font-family: 'Courier New', monospace; font-size: 0.85rem; }
+    .vars { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; }
+    .vars code { background: var(--surface2); padding: 1px 5px; border-radius: 4px; color: var(--accent); }
+    .btn { display: block; width: 100%; padding: 13px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; transition: background 0.2s; margin-top: 16px; }
+    .btn:hover { background: var(--accent-dim); }
+    .back-link { display: inline-block; margin-top: 20px; color: var(--text-dim); text-decoration: none; font-size: 0.85rem; }
+    .back-link:hover { color: var(--accent); }
+    .placeholder-hint { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 12px 14px; font-size: 0.82rem; color: var(--text-dim); margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">Invoice<span>Chase</span></div>
+      <div class="nav-right">
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Sign out</a>
+      </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="page-header">
+      <h1>Email Templates</h1>
+      <p>Customize reminder emails sent to your clients.</p>
+    </div>
+
+    <div class="placeholder-hint">
+      <strong>Placeholders:</strong> Use <code>{client_name}</code>, <code>{amount}</code>, <code>{due_date}</code>, <code>{description}</code>, <code>{user_name}</code> in your templates — they'll be replaced with real values automatically.
+    </div>
+
+    <form method="POST">
+      {% for rt, label, badge_class in [('reminder_3', '3-Day Reminder', 'd3'), ('reminder_7', '7-Day Reminder', 'd7'), ('reminder_14', '14-Day Reminder', 'd14')] %}
+      {% set t = templates[rt] %}
+      <div class="template-card">
+        <div class="template-header">
+          <h2>{{ label }}</h2>
+          <span class="badge {{ badge_class }}">{{ label }}</span>
+        </div>
+        <div class="form-group">
+          <label>Subject</label>
+          <input type="text" name="subject_{{ rt }}" value="{{ t.subject }}">
+        </div>
+        <div class="form-group">
+          <label>Body</label>
+          <textarea name="body_{{ rt }}">{{ t.body }}</textarea>
+        </div>
+      </div>
+      {% endfor %}
+
+      <button type="submit" class="btn">Save Templates</button>
+    </form>
+
+    <a href="{{ url_for('dashboard') }}" class="back-link">← Back to Dashboard</a>
+  </div>
+</body>
+</html>

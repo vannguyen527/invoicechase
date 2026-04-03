@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Invoice — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; --red: #ef4444; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 600px; margin: 0 auto; padding: 0 24px; }
+    nav { padding: 18px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-weight: 800; font-size: 1.1rem; }
+    .logo span { color: var(--accent); }
+    nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; }
+    nav a:hover { color: var(--text); }
+    .page-header { padding: 32px 0 24px; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+    .page-header p { color: var(--text-dim); font-size: 0.88rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+    .flash { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; }
+    .flash.error { background: rgba(239,68,68,0.15); border: 1px solid var(--red); color: var(--red); }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: #ccc; }
+    .required { color: var(--accent); }
+    input, textarea { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem; font-family: inherit; outline: none; transition: border-color 0.2s; resize: vertical; }
+    input:focus, textarea:focus { border-color: var(--accent); }
+    input::placeholder, textarea::placeholder { color: var(--text-dim); }
+    textarea { min-height: 80px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .btn { display: block; width: 100%; padding: 13px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+    .btn:hover { background: var(--accent-dim); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); width: 100%; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-family: inherit; cursor: pointer; margin-top: 8px; }
+    .btn-outline:hover { border-color: var(--red); color: var(--red); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">Invoice<span>Chase</span></div>
+      <a href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="page-header">
+      <h1>Edit Invoice</h1>
+      <p>Update invoice details. Due date changes will reschedule reminders.</p>
+    </div>
+
+    <div class="card">
+      <form method="POST">
+        <div class="form-group">
+          <label>Client Name <span class="required">*</span></label>
+          <input type="text" name="client_name" value="{{ invoice.client_name }}" required>
+        </div>
+        <div class="form-group">
+          <label>Client Email <span class="required">*</span></label>
+          <input type="email" name="client_email" value="{{ invoice.client_email }}" required>
+        </div>
+        <div class="row">
+          <div class="form-group">
+            <label>Amount ($) <span class="required">*</span></label>
+            <input type="number" name="amount" value="{{ invoice.amount }}" step="0.01" min="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Due Date <span class="required">*</span></label>
+            <input type="date" name="due_date" value="{{ invoice.due_date }}" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description / Notes</label>
+          <textarea name="description">{{ invoice.description or '' }}</textarea>
+        </div>
+        <button type="submit" class="btn">Save Changes →</button>
+        <button type="button" class="btn-outline" onclick="if(confirm('Delete this invoice?')){document.getElementById('deleteForm').submit();}">Delete Invoice</button>
+      </form>
+      <form id="deleteForm" method="POST" action="{{ url_for('delete_invoice', invoice_id=invoice.id) }}" style="display:none;"></form>
+    </div>
+  </div>
+</body>
+</html>

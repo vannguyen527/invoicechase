@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Successful — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 48px 40px; width: 100%; max-width: 480px; text-align: center; }
+    .check { width: 64px; height: 64px; background: rgba(34,197,94,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 2rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
+    p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 28px; line-height: 1.6; }
+    .email-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 0.88rem; margin-bottom: 28px; color: #ccc; }
+    .btn { display: inline-block; padding: 12px 24px; background: var(--accent); color: #000; border-radius: 8px; font-size: 0.95rem; font-weight: 700; text-decoration: none; transition: background 0.2s; }
+    .btn:hover { background: var(--accent-dim); }
+    .footer { margin-top: 20px; font-size: 0.78rem; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">✓</div>
+    <h1>You're in!</h1>
+    <p>InvoiceChase is activated. Create your account to start tracking invoices and sending automatic reminders.</p>
+    {% if email %}
+    <div class="email-badge">{{ email }}</div>
+    {% endif %}
+    <a href="{{ url_for('register') }}" class="btn">Create Your Account →</a>
+    <div class="footer">Already have an account? <a href="{{ url_for('login') }}" style="color: var(--accent);">Sign in</a></div>
+  </div>
+</body>
+</html>

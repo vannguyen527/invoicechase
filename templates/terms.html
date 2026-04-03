@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+    nav { padding: 18px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-weight: 800; font-size: 1.1rem; }
+    .logo span { color: var(--accent); }
+    nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; }
+    nav a:hover { color: var(--text); }
+    .content { padding: 40px 0; }
+    h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+    .updated { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 32px; }
+    h2 { font-size: 1.1rem; font-weight: 700; margin-top: 28px; margin-bottom: 10px; color: var(--text); }
+    p { font-size: 0.9rem; color: #ccc; line-height: 1.7; margin-bottom: 12px; }
+    ul { margin-bottom: 12px; padding-left: 20px; }
+    li { font-size: 0.9rem; color: #ccc; line-height: 1.7; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">Invoice<span>Chase</span></div>
+      <a href="{{ url_for('index') }}">← Back</a>
+    </nav>
+    <div class="content">
+      <h1>Terms of Service</h1>
+      <p class="updated">Last updated: April 2026</p>
+
+      <h2>1. Acceptance of Terms</h2>
+      <p>By accessing or using InvoiceChase ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service.</p>
+
+      <h2>2. Description of Service</h2>
+      <p>InvoiceChase provides automated invoice reminder services. We send email reminders on your behalf to the client email addresses you provide. We do not guarantee payment collection or results.</p>
+
+      <h2>3. Account Registration</h2>
+      <p>You must provide accurate information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activity under your account.</p>
+
+      <h2>4. Payment</h2>
+      <p>One-time payment of $29 grants you lifetime access to the Service. No recurring billing will occur unless a separate subscription is agreed upon in writing. All payments are processed securely via Stripe.</p>
+
+      <h2>5. Email Communications</h2>
+      <p>You authorize InvoiceChase to send email reminders to your clients on your behalf. You represent that you have the right to contact your clients via email and that your use of the Service complies with applicable email marketing laws including CAN-SPAM and GDPR.</p>
+
+      <h2>6. Limitation of Liability</h2>
+      <p>InvoiceChase is not responsible for any failure to collect payments, any disputes between you and your clients, or any consequential damages arising from your use of the Service. The Service is provided "as is" without warranties of any kind.</p>
+
+      <h2>7. Privacy</h2>
+      <p>Your use of the Service is also governed by our Privacy Policy. Please review it at <a href="{{ url_for('privacy') }}" style="color: var(--accent);">invoicechase.onrender.com/privacy</a>.</p>
+
+      <h2>8. Termination</h2>
+      <p>We reserve the right to suspend or terminate your account at any time for violation of these terms. You may cancel your account at any time by contacting us.</p>
+
+      <h2>9. Contact</h2>
+      <p>For questions about these terms, contact us at support@invoicechase.onrender.com.</p>
+    </div>
+  </div>
+</body>
+</html>
