@@ -538,22 +538,6 @@ def add_invoice():
                             'amount': amount, 'due_date': due_date},
                   ip_address=get_client_ip())
 
-        flash('Invoice added! Reminders scheduled automatically.', 'success')
-        try:
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            print(f"[REDIRECT ERROR] {e}")
-            return redirect(url_for('invoices_add_get'))
-
-    try:
-        return render_template('add_invoice.html', user=user)
-    except Exception as e:
-        print(f"[RENDER ERROR] {e}")
-        return "Error loading page", 500
-
-def invoices_add_get():
-    return render_template('add_invoice.html', user=get_current_user())
-
 @app.route('/invoices/add', methods=['GET', 'POST'])
 @login_required
 def add_invoice():
@@ -615,11 +599,7 @@ def add_invoice():
             print(f"[AUDIT ERROR] {e}")
 
         flash('Invoice added! Reminders scheduled automatically.', 'success')
-        try:
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            print(f"[REDIRECT ERROR] {e}")
-            return redirect(url_for('add_invoice'))
+        return redirect(url_for('dashboard'))
 
     return render_template('add_invoice.html', user=user)
 
