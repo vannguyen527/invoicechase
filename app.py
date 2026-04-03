@@ -193,8 +193,7 @@ def login_required(f):
 def get_current_user():
     if 'user_id' in session:
         conn = get_db()
-        c = conn.cursor()
-        user = c.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
         conn.close()
         return user
     return None
