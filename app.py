@@ -484,6 +484,11 @@ def check_and_send_reminders():
 # Cron endpoint — call this every 15 min via Render cron or external service
 @app.route('/cron/reminders')
 def cron_reminders():
+    # Require a secret token so only the cron service can trigger this
+    token = request.args.get('token', '')
+    expected = os.environ.get('CRON_SECRET', '')
+    if expected and token != expected:
+        return 'forbidden', 403
     check_and_send_reminders()
     return 'ok', 200
 
