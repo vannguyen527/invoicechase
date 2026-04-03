@@ -852,13 +852,17 @@ def mark_paid(invoice_id):
     conn.close()
 
     user = get_current_user()
-    log_audit('invoice_marked_paid', user_id=session['user_id'],
-              actor_email=user['email'] if user else None,
-              target_type='invoice', target_id=invoice_id,
-              metadata={'client_name': invoice['client_name'],
-                        'client_email': invoice['client_email'],
-                        'amount': invoice['amount']},
-              ip_address=get_client_ip())
+    user_email = user['email'] if user else None
+    try:
+        log_audit('invoice_marked_paid', user_id=session['user_id'],
+                  actor_email=user_email,
+                  target_type='invoice', target_id=invoice_id,
+                  metadata={'client_name': invoice['client_name'],
+                            'client_email': invoice['client_email'],
+                            'amount': invoice['amount']},
+                  ip_address=get_client_ip())
+    except Exception as e:
+        print(f"[AUDIT ERROR mark_paid] {e}")
 
     flash('Invoice marked as paid!', 'success')
 
@@ -909,13 +913,17 @@ def delete_invoice(invoice_id):
     conn.close()
 
     user = get_current_user()
-    log_audit('invoice_deleted', user_id=session['user_id'],
-              actor_email=user['email'] if user else None,
-              target_type='invoice', target_id=invoice_id,
-              metadata={'client_name': invoice['client_name'],
-                        'client_email': invoice['client_email'],
-                        'amount': invoice['amount']},
-              ip_address=get_client_ip())
+    user_email = user['email'] if user else None
+    try:
+        log_audit('invoice_deleted', user_id=session['user_id'],
+                  actor_email=user_email,
+                  target_type='invoice', target_id=invoice_id,
+                  metadata={'client_name': invoice['client_name'],
+                            'client_email': invoice['client_email'],
+                            'amount': invoice['amount']},
+                  ip_address=get_client_ip())
+    except Exception as e:
+        print(f"[AUDIT ERROR delete_invoice] {e}")
 
     flash('Invoice deleted.', 'info')
     return redirect(url_for('dashboard'))
@@ -1038,6 +1046,10 @@ def checkout():
         return redirect(checkout_session.url, code=303)
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e)}), 400
+
+@app.route('/pricing')
+def pricing():
+    return render_template('pricing.html')
 
 @app.route('/payment-success')
 def payment_success():
@@ -1241,17 +1253,22 @@ def support_reply(ticket_id):
         flash('Ticket not found', 'error')
         return redirect(url_for('support_tickets'))
 
+    current_user = get_current_user()
+    user_email = current_user['email'] if current_user else 'unknown'
     conn.execute('''
         INSERT INTO ticket_replies (ticket_id, author_type, author_id, author_email, body)
         VALUES (?, ?, ?, ?, ?)
-    ''', (ticket_id, 'user', session['user_id'], get_current_user()['email'], body))
+    ''', (ticket_id, 'user', session['user_id'], user_email, body))
     conn.commit()
     conn.close()
 
-    log_audit('ticket_replied', user_id=session['user_id'],
-              actor_email=get_current_user()['email'],
-              target_type='ticket', target_id=ticket_id,
-              metadata={'body_preview': body[:100]}, ip_address=get_client_ip())
+    try:
+        log_audit('ticket_replied', user_id=session['user_id'],
+                  actor_email=user_email,
+                  target_type='ticket', target_id=ticket_id,
+                  metadata={'body_preview': body[:100]}, ip_address=get_client_ip())
+    except Exception as e:
+        print(f"[AUDIT ERROR support_reply] {e}")
 
     flash('Reply sent!', 'success')
     return redirect(url_for('support_ticket_view', ticket_id=ticket_id))
@@ -1261,9 +1278,8 @@ def support_reply(ticket_id):
 @login_required
 def admin_tickets():
     user = get_current_user()
-    if user['email'] != 'van.nguyen@email.com' and user['email'] != 'admin@invoicechase.com':
-        flash('Access denied', 'error')
-        return redirect(url_for('dashboard'))
+    if not user or (user['email'] != 'van.nguyen@email.com' and user['email'] != 'admin@invoicechase.com'):
+        abort(403)
 
     status = request.args.get('status', 'open')
     conn = get_db()

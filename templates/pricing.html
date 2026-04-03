@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; --highlight: #fbbf24; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .container { max-width: 900px; margin: 0 auto; padding: 60px 20px; }
+    .logo { font-weight: 800; font-size: 1.1rem; margin-bottom: 8px; }
+    .logo span { color: var(--accent); }
+    .back { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; margin-bottom: 40px; display: inline-block; }
+    .back:hover { color: var(--text); }
+    .back::before { content: "← "; }
+    .badge { display: inline-block; background: rgba(34,197,94,0.12); border: 1px solid var(--accent); color: var(--accent); padding: 4px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+    h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 16px; line-height: 1.15; }
+    .sub { color: var(--text-dim); font-size: 1.05rem; max-width: 520px; margin-bottom: 48px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; position: relative; }
+    .card.featured { border-color: var(--accent); box-shadow: 0 0 40px rgba(34,197,94,0.08); }
+    .card .badge-popular { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 4px 16px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .plan-name { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 12px; }
+    .price { font-size: 3rem; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .price span { font-size: 1rem; font-weight: 500; color: var(--text-dim); }
+    .price-sub { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 28px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .features { list-style: none; }
+    .features li { padding: 7px 0; font-size: 0.88rem; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+    .features li::before { content: "✓"; color: var(--accent); font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+    .features li.dim::before { content: "–"; color: #555; }
+    .features li.dim { color: #555; }
+    .cta { display: block; width: 100%; padding: 13px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); text-align: center; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; margin-top: 24px; transition: border-color 0.2s, background 0.2s; }
+    .cta:hover { border-color: var(--text-dim); background: var(--border); }
+    .cta.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+    .cta.primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    .guarantee { text-align: center; margin-top: 48px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    .guarantee p { font-size: 0.85rem; color: var(--text-dim); }
+    .guarantee strong { color: var(--text); }
+    .faq { margin-top: 60px; }
+    .faq h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; }
+    .faq-item { border-top: 1px solid var(--border); padding: 20px 0; }
+    .faq-item:last-child { border-bottom: 1px solid var(--border); }
+    .faq-q { font-weight: 600; font-size: 0.95rem; margin-bottom: 8px; }
+    .faq-a { font-size: 0.88rem; color: var(--text-dim); }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 2rem; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Invoice<span>Chase</span></div>
+    <a href="{{ url_for('index') }}" class="back">Back to home</a>
+
+    <div class="badge">Simple, Transparent Pricing</div>
+    <h1>One price. No surprises.</h1>
+    <p class="sub">Stop leaving money on the table. Freelancers using automated invoice follow-ups collect up to 40% faster. What is your time worth?</p>
+
+    <div class="grid">
+      <!-- Free / Trial -->
+      <div class="card">
+        <div class="plan-name">Starter</div>
+        <div class="price">$0 <span>/ month</span></div>
+        <p class="price-sub">No credit card required</p>
+        <hr class="divider">
+        <ul class="features">
+          <li>3 invoices</li>
+          <li>5 email reminders/month</li>
+          <li>1 client email</li>
+          <li class="dim">SMS reminders</li>
+          <li class="dim">Custom branding</li>
+          <li class="dim">Priority support</li>
+        </ul>
+        <a href="{{ url_for('register') }}" class="cta">Get Started Free</a>
+      </div>
+
+      <!-- Pro -->
+      <div class="card featured">
+        <div class="badge-popular">Most Popular</div>
+        <div class="plan-name" style="color: var(--accent);">Pro</div>
+        <div class="price">$49 <span>/ one-time</span></div>
+        <p class="price-sub">Lifetime access. No subscriptions.</p>
+        <hr class="divider">
+        <ul class="features">
+          <li>Unlimited invoices</li>
+          <li>Unlimited email reminders</li>
+          <li>Unlimited client emails</li>
+          <li>SMS reminders</li>
+          <li>Custom branding</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="{{ url_for('checkout') }}" class="cta primary">Get Pro — $49</a>
+      </div>
+    </div>
+
+    <div class="guarantee">
+      <p><strong>30-day money-back guarantee.</strong> If InvoiceChase doesn't help you get paid faster, email us within 30 days for a full refund. No questions asked.</p>
+    </div>
+
+    <div class="faq">
+      <h2>Frequently Asked Questions</h2>
+      <div class="faq-item">
+        <p class="faq-q">Is this a monthly subscription?</p>
+        <p class="faq-a">No — $49 is a one-time payment for lifetime access. No recurring charges, ever.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">How does the reminder system work?</p>
+        <p class="faq-a">You set your payment terms and InvoiceChase automatically sends escalating reminders (friendly → firm → final) via email and SMS if you upgrade. Each reminder is customizable.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">What happens when I hit my invoice limit on the free plan?</p>
+        <p class="faq-a">You'll be prompted to upgrade to Pro. Your existing invoices remain accessible — they just won't receive new reminders until you upgrade.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">Can I import my existing invoices?</p>
+        <p class="faq-a">Coming soon — bulk CSV import is on the roadmap. For now, manually adding invoices takes about 30 seconds each.</p>
+      </div>
+      <div class="faq-item">
+        <p class="faq-q">What if a client refuses to pay?</p>
+        <p class="faq-a">InvoiceChase automates the follow-up sequence, not debt collection. It helps you stay professional and persistent — which handles 90% of late payers.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
