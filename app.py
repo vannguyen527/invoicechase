@@ -39,19 +39,27 @@ def checkout():
         if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
             return jsonify({'error': 'Valid email required'}), 400
 
-        session = stripe.checkout.Session.create(
+        # One-time payment: mode='payment' instead of 'subscription'
+        checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
-            mode='subscription',
+            mode='payment',
             customer_email=email,
             line_items=[{
-                'price': PRICE_ID,
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': 2900,  # $29.00
+                    'product_data': {
+                        'name': 'InvoiceChase Monthly',
+                        'description': 'Automated invoice reminder agent',
+                    },
+                },
                 'quantity': 1,
             }],
             success_url=url_for('success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=url_for('index', _external=True),
             metadata={'email': email}
         )
-        return redirect(session.url, code=303)
+        return redirect(checkout_session.url, code=303)
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e)}), 400
 
