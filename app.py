@@ -128,6 +128,27 @@ def init_db():
         )
     ''')
     c.execute('''
+        CREATE TABLE IF NOT EXISTS paid_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            name TEXT,
+            stripe_session_id TEXT,
+            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            activated INTEGER DEFAULT 0,
+            notified INTEGER DEFAULT 0
+        )
+    ''')
+    # Migration: add activated to paid_users if it doesn't exist (for existing records)
+    try:
+        c.execute("ALTER TABLE paid_users ADD COLUMN activated INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE paid_users ADD COLUMN notified INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    c.execute('''
         CREATE TABLE IF NOT EXISTS ticket_replies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ticket_id INTEGER NOT NULL,
@@ -270,6 +291,98 @@ def send_email(to_email, subject, body):
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
         return False
+
+
+def provision_paid_account(email, name=None, stripe_session_id=None):
+    """
+    Creates a user account after payment and sends welcome email with credentials.
+    Idempotent — safe to call multiple times for the same email.
+    Returns (user_id, password) on success, (None, None) on failure.
+    """
+    import hashlib, secrets as _secrets
+
+    # Generate a strong random password
+    temp_password = _secrets.token_urlsafe(12)
+    password_hash = hashlib.sha256(temp_password.encode()).hexdigest()
+
+    conn = get_db()
+
+    # Check if already activated
+    existing = conn.execute(
+        'SELECT id, activated FROM paid_users WHERE email = ?', (email,)
+    ).fetchone()
+
+    if existing and existing['activated']:
+        conn.close()
+        print(f"[PROVISION] Account already activated for {email}")
+        return None, None
+
+    # Check if user already exists in main users table (they registered before paying)
+    old_user = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
+
+    if old_user:
+        # User already has an account — just mark as paid, no new account needed
+        if existing:
+            conn.execute('UPDATE paid_users SET activated=1, notified=1, stripe_session_id=? WHERE email=?',
+                        (stripe_session_id, email))
+            conn.commit()
+        conn.close()
+        print(f"[PROVISION] Existing user {email} marked as paid")
+        return old_user['id'], None  # No new credentials needed
+
+    # Create account
+    if existing:
+        conn.execute('''
+            UPDATE paid_users
+            SET password_hash=?, name=?, stripe_session_id=?, activated=1, notified=1
+            WHERE email=?
+        ''', (password_hash, name or '', stripe_session_id or '', email))
+    else:
+        conn.execute('''
+            INSERT INTO paid_users (email, password_hash, name, stripe_session_id, activated, notified)
+            VALUES (?, ?, ?, ?, 1, 1)
+        ''', (email, password_hash, name or '', stripe_session_id or ''))
+
+    user_id = conn.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
+
+    if not user_id:
+        # Actually create the user in the main users table
+        conn.execute('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
+                    (email, password_hash, name or ''))
+        user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.commit()
+    else:
+        user_id = user_id[0]
+
+    conn.close()
+
+    # Send welcome email with credentials
+    welcome_subject = "Your InvoiceChase account is ready — here's how to log in"
+    welcome_body = f"""Hi{name + ',' if name else ''}
+
+Your InvoiceChase account is now active. Here's your login:
+
+  Email:    {email}
+  Password: {temp_password}
+
+Log in here: https://invoicechase.onrender.com/login
+
+Once logged in, you can:
+- Add your outstanding invoices (client name, email, amount, due date)
+- Customize reminder email templates
+- Track payment status on your dashboard
+
+The automated reminders go out at 3, 7, and 14 days past due — polite but firm.
+
+Questions? Reply to this email or visit https://invoicechase.onrender.com/support
+
+— The InvoiceChase Team
+"""
+
+    send_email(email, welcome_subject, welcome_body)
+    print(f"[PROVISION] Account created and welcome email sent to {email}")
+    return user_id, temp_password
+
 
 def get_email_template(user_id, reminder_type):
     conn = get_db()
@@ -791,6 +904,19 @@ def webhook():
         amount = sess.get('amount_total', PRICE_AMOUNT) / 100
         session_id = sess.get('id', '')
         print(f"PAYMENT: {email} paid ${amount}")
+
+        # Provision account and send welcome email with credentials
+        try:
+            uid, pwd = provision_paid_account(email, stripe_session_id=session_id)
+            if uid:
+                log_audit('account_provisioned', user_id=uid, actor_email=email,
+                          metadata={'amount': amount, 'session_id': session_id}, ip_address=None)
+                print(f"PROVISION: Account ready for {email}")
+            else:
+                print(f"PROVISION: {email} already had an active account")
+        except Exception as e:
+            print(f"PROVISION ERROR: {e}")
+
         log_audit('payment_received', user_id=None, actor_email=email,
                   metadata={'amount': amount, 'session_id': session_id,
                              'currency': sess.get('currency', 'usd')},
