@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Tickets — InvoiceChase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e; --border: #2a2a2a; --text: #f5f5f5; --text-dim: #888; --accent: #22c55e; --accent-dim: #16a34a; --red: #ef4444; --amber: #f59e0b; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+    nav { padding: 18px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-weight: 800; font-size: 1.1rem; }
+    .logo span { color: var(--accent); }
+    nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; margin-left: 16px; }
+    nav a:hover { color: var(--text); }
+    .page-header { padding: 32px 0 24px; display: flex; justify-content: space-between; align-items: center; }
+    .page-header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+    .page-header p { color: var(--text-dim); font-size: 0.88rem; }
+    .btn { display: inline-block; padding: 9px 16px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+    .btn:hover { background: var(--accent-dim); }
+    .flash { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; }
+    .flash.success { background: rgba(34,197,94,0.15); border: 1px solid var(--accent); color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    th { text-align: left; padding: 12px 16px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: 14px 16px; font-size: 0.88rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .ticket-subject { font-weight: 600; }
+    .ticket-id { color: var(--text-dim); font-size: 0.75rem; }
+    .ticket-date { color: var(--text-dim); font-size: 0.78rem; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .status.open { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .status.closed { background: rgba(136,136,136,0.15); color: var(--text-dim); }
+    .status.resolved { background: rgba(34,197,94,0.15); color: var(--accent); }
+    .view-btn { padding: 5px 12px; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.78rem; font-family: inherit; cursor: pointer; text-decoration: none; }
+    .view-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .empty h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+    .bottom-nav { margin-top: 40px; padding: 20px 0; border-top: 1px solid var(--border); display: flex; gap: 24px; }
+    .bottom-nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; }
+    .bottom-nav a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">Invoice<span>Chase</span></div>
+      <div>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('logout') }}">Sign out</a>
+      </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <div class="page-header">
+      <div>
+        <h1>My Support Tickets</h1>
+        <p>Track the status of your messages to us.</p>
+      </div>
+      <a href="{{ url_for('support') }}" class="btn">+ New Ticket</a>
+    </div>
+
+    {% if tickets %}
+    <table>
+      <thead>
+        <tr>
+          <th>Ticket</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+        <tr>
+          <td>
+            <div class="ticket-subject">{{ t.subject }}</div>
+            <div class="ticket-id">#{{ t.id }}</div>
+          </td>
+          <td><span class="status-badge status {{ t.status }}">{{ t.status|capitalize }}</span></td>
+          <td><span class="ticket-date">{{ t.created_at[:16] }}</span></td>
+          <td><a href="{{ url_for('support_ticket_view', ticket_id=t.id) }}" class="view-btn">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <h3>No tickets yet</h3>
+      <p>Have a question or issue? We'd love to hear from you.</p>
+      <br>
+      <a href="{{ url_for('support') }}" class="btn">Contact Support</a>
+    </div>
+    {% endif %}
+
+    <div class="bottom-nav">
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('support') }}">New Ticket</a>
+      <a href="{{ url_for('index') }}">Home</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -98,6 +98,47 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            user_id INTEGER,
+            actor_email TEXT,
+            target_type TEXT,
+            target_id INTEGER,
+            metadata TEXT,
+            ip_address TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            email TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL,
+            status TEXT DEFAULT 'open',
+            priority TEXT DEFAULT 'normal',
+            assigned_to TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS ticket_replies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER NOT NULL,
+            author_type TEXT NOT NULL,
+            author_id INTEGER,
+            author_email TEXT NOT NULL,
+            body TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (ticket_id) REFERENCES support_tickets(id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -126,6 +167,33 @@ def get_current_user():
         conn.close()
         return user
     return None
+
+def get_client_ip():
+    return request.headers.get('X-Forwarded-For', request.remote_addr, '').split(',')[0].strip()
+
+def log_audit(event_type, user_id=None, actor_email=None, target_type=None,
+              target_id=None, metadata=None, ip_address=None):
+    """Write an audit log entry. metadata should be a dict."""
+    try:
+        import json
+        meta_str = json.dumps(metadata) if metadata is not None else None
+        conn = get_db()
+        conn.execute('''
+            INSERT INTO audit_log (event_type, user_id, actor_email, target_type,
+                                   target_id, metadata, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (event_type, user_id, actor_email, target_type, target_id, meta_str, ip_address))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[AUDIT ERROR] {e}")
+
+AUDIT_EVENTS = {
+    'user_registered', 'user_login', 'user_logout', 'user_deleted',
+    'invoice_created', 'invoice_updated', 'invoice_deleted', 'invoice_marked_paid',
+    'reminder_sent', 'payment_received', 'ticket_created', 'ticket_replied',
+    'ticket_status_changed', 'template_updated',
+}
 
 # ------------------------------------------------------------------
 # Email sending
@@ -274,6 +342,14 @@ def check_and_send_reminders():
             conn2.commit()
             conn2.close()
 
+            log_audit('reminder_sent', user_id=r['user_id'],
+                      actor_email=r['user_email'],
+                      target_type='invoice', target_id=r['invoice_id'],
+                      metadata={'client_email': r['client_email'],
+                                'reminder_type': r['reminder_type'],
+                                'subject': subject},
+                      ip_address=None)
+
 # Cron endpoint — call this every 15 min via Render cron or external service
 @app.route('/cron/reminders')
 def cron_reminders():
@@ -335,6 +411,8 @@ def register():
             conn.close()
 
             session['user_id'] = user_id
+            log_audit('user_registered', user_id=user_id, actor_email=email,
+                      metadata={'name': name}, ip_address=get_client_ip())
             flash('Account created! Add your first invoice.', 'success')
             return redirect(url_for('dashboard'))
         except Exception as e:
@@ -356,6 +434,8 @@ def login():
 
         if user and user['password_hash'] == hash_password(password):
             session['user_id'] = user['id']
+            log_audit('user_login', user_id=user['id'], actor_email=email,
+                      ip_address=get_client_ip())
             flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -365,6 +445,15 @@ def login():
 
 @app.route('/logout')
 def logout():
+    user_id = session.get('user_id')
+    email = None
+    if user_id:
+        conn = get_db()
+        u = conn.execute('SELECT email FROM users WHERE id = ?', (user_id,)).fetchone()
+        if u:
+            email = u['email']
+        conn.close()
+    log_audit('user_logout', user_id=user_id, actor_email=email, ip_address=get_client_ip())
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
@@ -425,6 +514,15 @@ def add_invoice():
         # Schedule reminders
         schedule_reminders(invoice_id, due_date_obj)
 
+        # Audit log
+        user = get_current_user()
+        log_audit('invoice_created', user_id=session['user_id'],
+                  actor_email=user['email'] if user else None,
+                  target_type='invoice', target_id=invoice_id,
+                  metadata={'client_name': client_name, 'client_email': client_email,
+                            'amount': amount, 'due_date': due_date},
+                  ip_address=get_client_ip())
+
         flash('Invoice added! Reminders scheduled automatically.', 'success')
         return redirect(url_for('dashboard'))
 
@@ -470,6 +568,15 @@ def mark_paid(invoice_id):
     conn.commit()
     conn.close()
 
+    user = get_current_user()
+    log_audit('invoice_marked_paid', user_id=session['user_id'],
+              actor_email=user['email'] if user else None,
+              target_type='invoice', target_id=invoice_id,
+              metadata={'client_name': invoice['client_name'],
+                        'client_email': invoice['client_email'],
+                        'amount': invoice['amount']},
+              ip_address=get_client_ip())
+
     flash('Invoice marked as paid!', 'success')
     return redirect(url_for('dashboard'))
 
@@ -488,6 +595,15 @@ def delete_invoice(invoice_id):
     conn.execute('DELETE FROM invoices WHERE id = ?', (invoice_id,))
     conn.commit()
     conn.close()
+
+    user = get_current_user()
+    log_audit('invoice_deleted', user_id=session['user_id'],
+              actor_email=user['email'] if user else None,
+              target_type='invoice', target_id=invoice_id,
+              metadata={'client_name': invoice['client_name'],
+                        'client_email': invoice['client_email'],
+                        'amount': invoice['amount']},
+              ip_address=get_client_ip())
 
     flash('Invoice deleted.', 'info')
     return redirect(url_for('dashboard'))
@@ -653,7 +769,13 @@ def webhook():
     if event['type'] == 'checkout.session.completed':
         sess = event['data']['object']
         email = sess.get('customer_email', '')
-        print(f"PAYMENT: {email} paid ${PRICE_AMOUNT/100}")
+        amount = sess.get('amount_total', PRICE_AMOUNT) / 100
+        session_id = sess.get('id', '')
+        print(f"PAYMENT: {email} paid ${amount}")
+        log_audit('payment_received', user_id=None, actor_email=email,
+                  metadata={'amount': amount, 'session_id': session_id,
+                             'currency': sess.get('currency', 'usd')},
+                  ip_address=None)
 
     return '', 200
 
@@ -670,6 +792,183 @@ def terms():
 @app.route('/privacy')
 def privacy():
     return render_template('privacy.html')
+
+# ------------------------------------------------------------------
+# Support Tickets
+# ------------------------------------------------------------------
+
+@app.route('/support', methods=['GET', 'POST'])
+def support():
+    user = get_current_user()
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        subject = request.form.get('subject', '').strip()
+        body = request.form.get('body', '').strip()
+
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            flash('Valid email required', 'error')
+            return render_template('support.html', user=user)
+
+        if not subject or not body:
+            flash('Subject and message are required', 'error')
+            return render_template('support.html', user=user)
+
+        conn = get_db()
+        cur = conn.execute('''
+            INSERT INTO support_tickets (user_id, email, subject, body)
+            VALUES (?, ?, ?, ?)
+        ''', (session.get('user_id'), email, subject, body))
+        ticket_id = cur.lastrowid
+        conn.commit()
+        conn.close()
+
+        log_audit('ticket_created', user_id=session.get('user_id'),
+                  actor_email=email, target_type='ticket', target_id=ticket_id,
+                  metadata={'subject': subject}, ip_address=get_client_ip())
+
+        flash(f'Thank you! Your message has been received. (Ticket #{ticket_id})', 'success')
+        return redirect(url_for('support_tickets'))
+
+    return render_template('support.html', user=user)
+
+@app.route('/support/tickets')
+@login_required
+def support_tickets():
+    user = get_current_user()
+    conn = get_db()
+    tickets = conn.execute('''
+        SELECT * FROM support_tickets WHERE user_id = ? ORDER BY created_at DESC
+    ''', (session['user_id'],)).fetchall()
+    conn.close()
+    return render_template('support_tickets.html', tickets=tickets, user=user)
+
+@app.route('/support/tickets/<int:ticket_id>')
+@login_required
+def support_ticket_view(ticket_id):
+    user = get_current_user()
+    conn = get_db()
+    ticket = conn.execute(
+        'SELECT * FROM support_tickets WHERE id = ? AND user_id = ?',
+        (ticket_id, session['user_id'])
+    ).fetchone()
+    if not ticket:
+        conn.close()
+        flash('Ticket not found', 'error')
+        return redirect(url_for('support_tickets'))
+
+    replies = conn.execute(
+        'SELECT * FROM ticket_replies WHERE ticket_id = ? ORDER BY created_at ASC',
+        (ticket_id,)
+    ).fetchall()
+    conn.close()
+    return render_template('support_ticket_view.html',
+                           ticket=ticket, replies=replies, user=user)
+
+@app.route('/support/tickets/<int:ticket_id>/reply', methods=['POST'])
+@login_required
+def support_reply(ticket_id):
+    body = request.form.get('body', '').strip()
+    if not body:
+        flash('Message cannot be empty', 'error')
+        return redirect(url_for('support_ticket_view', ticket_id=ticket_id))
+
+    conn = get_db()
+    ticket = conn.execute(
+        'SELECT * FROM support_tickets WHERE id = ? AND user_id = ?',
+        (ticket_id, session['user_id'])
+    ).fetchone()
+    if not ticket:
+        conn.close()
+        flash('Ticket not found', 'error')
+        return redirect(url_for('support_tickets'))
+
+    conn.execute('''
+        INSERT INTO ticket_replies (ticket_id, author_type, author_id, author_email, body)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (ticket_id, 'user', session['user_id'], get_current_user()['email'], body))
+    conn.commit()
+    conn.close()
+
+    log_audit('ticket_replied', user_id=session['user_id'],
+              actor_email=get_current_user()['email'],
+              target_type='ticket', target_id=ticket_id,
+              metadata={'body_preview': body[:100]}, ip_address=get_client_ip())
+
+    flash('Reply sent!', 'success')
+    return redirect(url_for('support_ticket_view', ticket_id=ticket_id))
+
+# ---- Admin: view all tickets (add /admin/tickets route) ----
+@app.route('/admin/tickets')
+@login_required
+def admin_tickets():
+    user = get_current_user()
+    if user['email'] != 'van.nguyen@email.com' and user['email'] != 'admin@invoicechase.com':
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+
+    status = request.args.get('status', 'open')
+    conn = get_db()
+    if status == 'all':
+        tickets = conn.execute('''
+            SELECT t.*, u.name as user_name
+            FROM support_tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            ORDER BY t.created_at DESC LIMIT 50
+        ''').fetchall()
+    else:
+        tickets = conn.execute('''
+            SELECT t.*, u.name as user_name
+            FROM support_tickets t
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.status = ?
+            ORDER BY t.created_at DESC LIMIT 50
+        ''', (status,)).fetchall()
+    conn.close()
+    return render_template('admin_tickets.html', tickets=tickets, status=status, user=user)
+
+@app.route('/admin/tickets/<int:ticket_id>/reply', methods=['POST'])
+@login_required
+def admin_reply_ticket(ticket_id):
+    user = get_current_user()
+    body = request.form.get('body', '').strip()
+    new_status = request.form.get('status', 'open')
+
+    if not body:
+        flash('Reply cannot be empty', 'error')
+        return redirect(url_for('admin_tickets'))
+
+    conn = get_db()
+    ticket = conn.execute('SELECT * FROM support_tickets WHERE id = ?', (ticket_id,)).fetchone()
+    if not ticket:
+        conn.close()
+        flash('Ticket not found', 'error')
+        return redirect(url_for('admin_tickets'))
+
+    # Insert admin reply
+    conn.execute('''
+        INSERT INTO ticket_replies (ticket_id, author_type, author_id, author_email, body)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (ticket_id, 'admin', session['user_id'], user['email'], body))
+    conn.execute('UPDATE support_tickets SET status = ?, updated_at = ? WHERE id = ?',
+                 (new_status, datetime.now(), ticket_id))
+    conn.commit()
+    conn.close()
+
+    # Send email to customer
+    send_email(
+        ticket['email'],
+        f"Re: [{ticket['subject']}] — InvoiceChase Support",
+        f"InvoiceChase support team replied to your ticket:\n\n{ticket['subject']}\n\n---\n\n{body}\n\n---\nView your ticket: https://invoicechase.onrender.com/support/tickets/{ticket_id}\n"
+    )
+
+    log_audit('ticket_replied', user_id=session['user_id'],
+              actor_email=user['email'], target_type='ticket', target_id=ticket_id,
+              metadata={'body_preview': body[:100], 'as': 'admin', 'new_status': new_status},
+              ip_address=get_client_ip())
+
+    flash('Reply sent to customer!', 'success')
+    return redirect(url_for('admin_tickets'))
 
 # ------------------------------------------------------------------
 if __name__ == '__main__':
