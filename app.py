@@ -229,7 +229,7 @@ DEFAULT_SUBJECTS = {
 DEFAULT_BODIES = {
     'reminder_3': '''Hi {client_name},
 
-This is a friendly reminder that your invoice is due in 3 days.
+This is a friendly reminder that your invoice is now overdue.
 
 Invoice Details:
   Amount: {amount}
@@ -367,7 +367,7 @@ def provision_paid_account(email, name=None, stripe_session_id=None):
 
         # Send welcome email
         welcome_subject = "Your InvoiceChase account is ready — here's how to log in"
-        welcome_body = f"""Hi{name + ',' if name else ''}
+        welcome_body = f"""Hi {name + ',' if name else ''}
 
 Your InvoiceChase account is now active. Here's your login:
 
@@ -729,6 +729,35 @@ def mark_paid(invoice_id):
               ip_address=get_client_ip())
 
     flash('Invoice marked as paid!', 'success')
+
+    # Send receipt to debtor
+    send_email(
+        invoice['client_email'],
+        f"Payment Received — Invoice from {user['name'] or user['email']}",
+        f"""Hi {invoice['client_name']},
+
+Payment has been received. Thank you!
+
+Invoice Details:
+  Amount: ${invoice['amount']:.2f}
+  Due Date: {invoice['due_date']}
+  Description: {invoice['description'] or 'N/A'}
+
+Paid on: {datetime.now().strftime('%Y-%m-%d')}
+
+Best regards,
+{user['name'] or user['email']}
+"""
+    )
+
+    # Send confirmation to customer
+    send_email(
+        user['email'],
+        f"Invoice marked as paid — {invoice['client_name']}",
+        f"You marked the invoice for {invoice['client_name']} ({invoice['client_email']}) as paid. "
+        f"Amount: ${invoice['amount']:.2f}. Reminders have been cancelled."
+    )
+
     return redirect(url_for('dashboard'))
 
 @app.route('/invoices/<int:invoice_id>/delete', methods=['POST'])
