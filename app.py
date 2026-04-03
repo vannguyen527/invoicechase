@@ -1280,29 +1280,34 @@ def support_reply(ticket_id):
 @app.route('/admin/tickets')
 @login_required
 def admin_tickets():
-    user = get_current_user()
-    if not user or (user['email'] != 'van.nguyen@email.com' and user['email'] != 'admin@invoicechase.com'):
-        abort(403)
+    try:
+        user = get_current_user()
+        if not user or (user.get('email') not in ('van.nguyen@email.com', 'admin@invoicechase.com')):
+            abort(403)
 
-    status = request.args.get('status', 'open')
-    conn = get_db()
-    if status == 'all':
-        tickets = conn.execute('''
-            SELECT t.*, u.name as user_name
-            FROM support_tickets t
-            LEFT JOIN users u ON t.user_id = u.id
-            ORDER BY t.created_at DESC LIMIT 50
-        ''').fetchall()
-    else:
-        tickets = conn.execute('''
-            SELECT t.*, u.name as user_name
-            FROM support_tickets t
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.status = ?
-            ORDER BY t.created_at DESC LIMIT 50
-        ''', (status,)).fetchall()
-    conn.close()
-    return render_template('admin_tickets.html', tickets=tickets, status=status, user=user)
+        status = request.args.get('status', 'open')
+        conn = get_db()
+        if status == 'all':
+            tickets = conn.execute('''
+                SELECT t.*, u.name as user_name
+                FROM support_tickets t
+                LEFT JOIN users u ON t.user_id = u.id
+                ORDER BY t.created_at DESC LIMIT 50
+            ''').fetchall()
+        else:
+            tickets = conn.execute('''
+                SELECT t.*, u.name as user_name
+                FROM support_tickets t
+                LEFT JOIN users u ON t.user_id = u.id
+                WHERE t.status = ?
+                ORDER BY t.created_at DESC LIMIT 50
+            ''', (status,)).fetchall()
+        conn.close()
+        return render_template('admin_tickets.html', tickets=tickets, status=status, user=user)
+    except Exception as e:
+        import traceback
+        return f"Admin error: {e}<pre>{traceback.format_exc()}</pre>", 500
+
 
 @app.route('/admin/tickets/<int:ticket_id>/reply', methods=['POST'])
 @login_required
