@@ -539,9 +539,89 @@ def add_invoice():
                   ip_address=get_client_ip())
 
         flash('Invoice added! Reminders scheduled automatically.', 'success')
-        return redirect(url_for('dashboard'))
+        try:
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            print(f"[REDIRECT ERROR] {e}")
+            return redirect(url_for('invoices_add_get'))
 
-    return render_template('add_invoice.html')
+    try:
+        return render_template('add_invoice.html', user=user)
+    except Exception as e:
+        print(f"[RENDER ERROR] {e}")
+        return "Error loading page", 500
+
+def invoices_add_get():
+    return render_template('add_invoice.html', user=get_current_user())
+
+@app.route('/invoices/add', methods=['GET', 'POST'])
+@login_required
+def add_invoice():
+    user = get_current_user()
+    print(f"[INVOICE DEBUG] user={user['email'] if user else 'NONE'}, session.user_id={session.get('user_id')}")
+    if request.method == 'POST':
+        client_name = request.form.get('client_name', '').strip()
+        client_email = request.form.get('client_email', '').strip()
+        amount = request.form.get('amount', '')
+        due_date = request.form.get('due_date', '')
+        description = request.form.get('description', '').strip()
+        print(f"[INVOICE DEBUG] POST client_name={client_name}, amount={amount}, due_date={due_date}")
+
+        if not all([client_name, client_email, amount, due_date]):
+            flash('Please fill in all required fields', 'error')
+            return render_template('add_invoice.html', user=user)
+
+        try:
+            amount = float(amount)
+        except ValueError:
+            flash('Amount must be a number', 'error')
+            return render_template('add_invoice.html', user=user)
+
+        try:
+            due_date_obj = datetime.strptime(due_date, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Invalid due date format', 'error')
+            return render_template('add_invoice.html', user=user)
+
+        try:
+            conn = get_db()
+            cur = conn.execute('''
+                INSERT INTO invoices (user_id, client_name, client_email, amount, due_date, description)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (session['user_id'], client_name, client_email, amount, due_date, description))
+            invoice_id = cur.lastrowid
+            conn.commit()
+            conn.close()
+            print(f"[INVOICE DEBUG] created id={invoice_id}")
+        except Exception as e:
+            print(f"[INVOICE INSERT ERROR] {e}")
+            flash(f'Database error: {e}', 'error')
+            return render_template('add_invoice.html', user=user)
+
+        try:
+            schedule_reminders(invoice_id, due_date_obj)
+            print(f"[INVOICE DEBUG] reminders scheduled")
+        except Exception as e:
+            print(f"[REMINDER SCHEDULE ERROR] {e}")
+
+        try:
+            log_audit('invoice_created', user_id=session['user_id'],
+                      actor_email=user['email'] if user else None,
+                      target_type='invoice', target_id=invoice_id,
+                      metadata={'client_name': client_name, 'client_email': client_email,
+                                'amount': amount, 'due_date': due_date},
+                      ip_address=get_client_ip())
+        except Exception as e:
+            print(f"[AUDIT ERROR] {e}")
+
+        flash('Invoice added! Reminders scheduled automatically.', 'success')
+        try:
+            return redirect(url_for('dashboard'))
+        except Exception as e:
+            print(f"[REDIRECT ERROR] {e}")
+            return redirect(url_for('add_invoice'))
+
+    return render_template('add_invoice.html', user=user)
 
 def schedule_reminders(invoice_id, due_date):
     """Schedule 3/7/14 day overdue reminders"""
