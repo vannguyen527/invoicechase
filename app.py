@@ -485,12 +485,15 @@ def dashboard():
 @app.route('/invoices/add', methods=['GET', 'POST'])
 @login_required
 def add_invoice():
+    user = get_current_user()
+    print(f"[INVOICE DEBUG] user={user['email'] if user else 'NONE'}, session.user_id={session.get('user_id')}")
     if request.method == 'POST':
         client_name = request.form.get('client_name', '').strip()
         client_email = request.form.get('client_email', '').strip()
         amount = request.form.get('amount', '')
         due_date = request.form.get('due_date', '')
         description = request.form.get('description', '').strip()
+        print(f"[INVOICE DEBUG] POST client_name={client_name}, amount={amount}, due_date={due_date}")
 
         if not all([client_name, client_email, amount, due_date]):
             flash('Please fill in all required fields', 'error')
