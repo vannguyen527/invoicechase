@@ -572,29 +572,41 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    try:
-        if request.method == 'POST':
-            email = request.form.get('email', '').strip().lower()
-            password=request.form.get('password', '')
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
+        if not email or not password:
+            flash('Please enter your email and password.', 'error')
+            return render_template('login.html')
+
+        try:
             conn = get_db()
-            user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+            user_row = conn.execute('SELECT id, email, password_hash, name FROM users WHERE email = ?', (email,)).fetchone()
             conn.close()
 
-            print(f"[LOGIN] email={email}, user_found={user is not None}, user_dict={dict(user) if user else None}")
-            if user and user['password_hash'] == hash_password(password):
-                session['user_id'] = user['id']
-                log_audit('user_login', user_id=user['id'], actor_email=email,
-                          ip_address=get_client_ip())
-                flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
+            if user_row is None:
+                flash('Invalid email or password.', 'error')
+                return render_template('login.html')
+
+            stored_hash = user_row['password_hash']
+            provided_hash = hash_password(password)
+
+            if stored_hash == provided_hash:
+                session['user_id'] = user_row['id']
+                try:
+                    log_audit('user_login', user_id=user_row['id'], actor_email=email, ip_address=get_client_ip())
+                except Exception:
+                    pass
+                flash(f'Welcome back, {user_row["name"] or user_row["email"]}!', 'success')
                 return redirect(url_for('dashboard'))
             else:
-                stored_hash = user['password_hash'][:20] if user else 'N/A'
-                print(f"[LOGIN] Failed — stored_hash={stored_hash}... provided_hash={hash_password(password)[:20]}...")
-                flash('Invalid email or password', 'error')
-    except Exception as e:
-        print(f"[LOGIN ERROR] {e}")
-        flash('Something went wrong. Please try again.', 'error')
+                flash('Invalid email or password.', 'error')
+                return render_template('login.html')
+
+        except Exception as e:
+            print(f"[LOGIN ERROR] {e}")
+            flash('Something went wrong. Please try again.', 'error')
 
     return render_template('login.html')
 
@@ -994,8 +1006,11 @@ def email_settings():
     return render_template('email_settings.html', templates=templates, user=user)
 
 # ---- Checkout ----
-@app.route('/checkout', methods=['POST'])
+@app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
+    if request.method == 'GET':
+        return render_template('checkout.html')
+
     try:
         email = request.form.get('email', '').strip()
         if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
@@ -1387,6 +1402,9 @@ def admin_debug_login():
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
         results.append(f"[2] DB query works: user={dict(user) if user else None}")
+        if user:
+            results.append(f"    Columns: {user.keys()}")
+            results.append(f"    password_hash[:20]={user['password_hash'][:20] if user['password_hash'] else 'NULL'}")
     except Exception as e:
         results.append(f"[2] DB query FAILED: {e}")
         return "<br>".join(results)
@@ -1421,7 +1439,10 @@ def admin_debug_login():
 
         return "<br>".join(results)
     else:
-        results.append(f"[FAIL] Password mismatch: stored={user['password_hash'][:20] if user else None}, provided={hash_password(password)[:20]}")
+        pw_hash = hash_password(password)
+        stored = user['password_hash'][:20] if user and user['password_hash'] else 'NULL'
+        results.append(f"[FAIL] Password mismatch: stored={stored}, provided={pw_hash[:20]}")
+        results.append(f"    equal={stored == pw_hash[:20]}")
         return "<br>".join(results)
 
 # ------------------------------------------------------------------
