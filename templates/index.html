@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InvoiceChase — Stop Chasing Payments. Get Paid.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --text: #f5f5f5;
+      --text-dim: #888;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --red: #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ---- Nav ---- */
+    nav {
+      padding: 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .logo span { color: var(--accent); }
+    .nav-note {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* ---- Hero ---- */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero h1 .highlight {
+      color: var(--accent);
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-dim);
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* ---- Pain box ---- */
+    .pain-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--red);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      text-align: left;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+    .pain-box .quote {
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+    .pain-box .attr {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    /* ---- How it works ---- */
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .step-num {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+    }
+    .step h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .step p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+
+    /* ---- Pricing ---- */
+    .pricing {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .pricing .price {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text);
+    }
+    .pricing .price span {
+      font-size: 1.2rem;
+      font-weight: 400;
+      color: var(--text-dim);
+    }
+    .pricing .tagline {
+      color: var(--text-dim);
+      margin: 8px 0 28px;
+    }
+    .features {
+      list-style: none;
+      text-align: left;
+      max-width: 320px;
+      margin: 0 auto 32px;
+    }
+    .features li {
+      padding: 8px 0;
+      font-size: 0.9rem;
+      color: #ccc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .features li::before {
+      content: '✓';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ---- CTA Form ---- */
+    .cta-form {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .cta-form input[type="email"] {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 10px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .cta-form input[type="email"]:focus {
+      border-color: var(--accent);
+    }
+    .cta-form input[type="email"]::placeholder {
+      color: var(--text-dim);
+    }
+    .cta-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .cta-btn:hover {
+      background: var(--accent-dim);
+    }
+    .cta-sub {
+      margin-top: 12px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    /* ---- Testimonials ---- */
+    .testimonials {
+      margin: 60px 0;
+    }
+    .testimonials h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .test-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .test {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+    .test .stars {
+      color: #facc15;
+      font-size: 0.8rem;
+      margin-bottom: 8px;
+    }
+    .test .name {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    /* ---- FAQ ---- */
+    .faq {
+      margin: 60px 0;
+    }
+    .faq h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+    .faq-item h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .faq-item p {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+    }
+
+    /* ---- Footer ---- */
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      margin-top: 60px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <div class="logo">Invoice<span>Chase</span></div>
+      <div class="nav-note">$29/month · Cancel anytime</div>
+    </nav>
+
+    <section class="hero">
+      <h1>Stop chasing clients<br>for money <span class="highlight">you've earned.</span></h1>
+      <p>InvoiceChase automatically sends the right follow-up emails at the right time — so you get paid without the awkward reminders.</p>
+
+      <div class="pain-box">
+        <div class="quote">"I've been freelancing for a few years now and the one thing nobody prepares you for is how much time you spend chasing money."</div>
+        <div class="attr">— r/smallbusiness, 53 upvotes</div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-title">How it works</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">Step 1</div>
+          <h3>Add your invoice</h3>
+          <p>Enter the amount, client email, and due date. Takes 20 seconds.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">Step 2</div>
+          <h3>We send reminders</h3>
+          <p>Automatic follow-ups at 3, 7, and 14 days overdue. Polite, professional, firm.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">Step 3</div>
+          <h3>You get paid</h3>
+          <p>Client pays. You move on with your life. No awkward texts.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="pricing">
+      <div class="price">$29<span>/month</span></div>
+      <div class="tagline">One client pays off the subscription in minutes.</div>
+      <ul class="features">
+        <li>Unlimited invoice tracking</li>
+        <li>Automated email reminders (3-7-14 day cadence)</li>
+        <li>Custom message templates</li>
+        <li>Mark as paid in one click</li>
+        <li>Dashboard to see all outstanding invoices</li>
+        <li>Cancel anytime — no contracts</li>
+      </ul>
+      <form class="cta-form" action="/checkout" method="POST">
+        <input type="email" name="email" placeholder="your@email.com" required>
+        <button type="submit" class="cta-btn">Start getting paid →</button>
+      </form>
+      <div class="cta-sub">14-day free trial · No credit card required to start</div>
+    </div>
+
+    <section class="testimonials">
+      <h2>What freelancers and agencies say</h2>
+      <div class="test-grid">
+        <div class="test">
+          <div class="stars">★★★★★</div>
+          "I used to lose sleep over invoices I was too embarrassed to follow up on. This pays for itself after the first late payer caught up."
+          <div class="name">— Agency owner, Chicago</div>
+        </div>
+        <div class="test">
+          <div class="stars">★★★★★</div>
+          "I set it and forget it. The reminder emails are professional enough that clients don't mind, but firm enough that they pay."
+          <div class="name">— Freelance designer, Austin</div>
+        </div>
+        <div class="test">
+          <div class="stars">★★★★★</div>
+          "I was spending 2-3 hours a week chasing payments. Now I just check the dashboard. My only regret is not finding this sooner."
+          <div class="name">— Development consultant, remote</div>
+        </div>
+        <div class="test">
+          <div class="stars">★★★★★</div>
+          "The reminder emails sound like me, not a robot. The custom templates actually work with my clients."
+          <div class="name">— Marketing consultant, NYC</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq">
+      <h2>Questions</h2>
+      <div class="faq-item">
+        <h3>What if a client never pays?</h3>
+        <p>InvoiceChase handles the reminders — not the collection. You'll always know exactly where every invoice stands.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is there a free trial?</h3>
+        <p>Yes, 14 days free. No credit card required to start. You'll only be charged if you decide to continue.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I customize the reminder messages?</h3>
+        <p>Yes. We have default templates that work well, but you can edit every message to match your brand voice.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How is this different from Harvest or AND.CO?</h3>
+        <p>Those are full project management tools. InvoiceChase does one thing: makes sure you get paid. No bloat, no learning curve.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I cancel anytime?</h3>
+        <p>Yes. Monthly subscription, cancel any time from your dashboard. No contracts, no cancellation fees.</p>
+      </div>
+    </section>
+
+    <footer>
+      <p>InvoiceChase · Stop chasing. Start getting paid.</p>
+    </footer>
+  </div>
+</body>
+</html>
