@@ -502,17 +502,27 @@ def add_invoice():
 
         due_date_obj = datetime.strptime(due_date, '%Y-%m-%d').date()
 
-        conn = get_db()
-        cur = conn.execute('''
-            INSERT INTO invoices (user_id, client_name, client_email, amount, due_date, description)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (session['user_id'], client_name, client_email, amount, due_date, description))
-        invoice_id = cur.lastrowid
-        conn.commit()
-        conn.close()
+        try:
+            conn = get_db()
+            cur = conn.execute('''
+                INSERT INTO invoices (user_id, client_name, client_email, amount, due_date, description)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (session['user_id'], client_name, client_email, amount, due_date, description))
+            invoice_id = cur.lastrowid
+            conn.commit()
+            conn.close()
+            print(f"[INVOICE DEBUG] created id={invoice_id}")
+        except Exception as e:
+            print(f"[INVOICE INSERT ERROR] {e}")
+            conn.close()
+            flash(f'Database error: {e}', 'error')
+            return render_template('add_invoice.html')
 
-        # Schedule reminders
-        schedule_reminders(invoice_id, due_date_obj)
+        try:
+            schedule_reminders(invoice_id, due_date_obj)
+            print(f"[INVOICE DEBUG] reminders scheduled")
+        except Exception as e:
+            print(f"[REMINDER SCHEDULE ERROR] {e}")
 
         # Audit log
         user = get_current_user()
