@@ -550,12 +550,13 @@ def register():
 def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
+        password=request.form.get('password', '')
 
         conn = get_db()
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
 
+        print(f"[LOGIN] email={email}, user_found={user is not None}, user_dict={dict(user) if user else None}")
         if user and user['password_hash'] == hash_password(password):
             session['user_id'] = user['id']
             log_audit('user_login', user_id=user['id'], actor_email=email,
@@ -563,6 +564,7 @@ def login():
             flash(f'Welcome back, {user["name"] or user["email"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
+            print(f"[LOGIN] Failed — stored_hash={user['password_hash'][:20] if user else 'N/A'}... provided_hash={hash_password(password)[:20]}...")
             flash('Invalid email or password', 'error')
 
     return render_template('login.html')
