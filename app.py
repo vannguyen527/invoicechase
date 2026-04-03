@@ -282,12 +282,21 @@ def send_email(to_email, subject, body):
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASS)
             server.sendmail(FROM_EMAIL, [to_email], msg.as_string())
         print(f"[EMAIL SENT] To: {to_email} | Subject: {subject}")
         return True
+    except smtplib.SMTPServerDisconnected as e:
+        print(f"[EMAIL ERROR] SMTP server disconnected: {e} — check SMTP_HOST/USER/PASS")
+        return False
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[EMAIL ERROR] SMTP auth failed: {e}")
+        return False
+    except ConnectionRefusedError as e:
+        print(f"[EMAIL ERROR] SMTP connection refused: {e}")
+        return False
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
         return False
