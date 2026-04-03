@@ -17,6 +17,7 @@ from functools import wraps
 import stripe
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 # ------------------------------------------------------------------
 # App Setup
@@ -37,7 +38,7 @@ SMTP_USER = os.environ.get('SMTP_USER', '')
 SMTP_PASS = os.environ.get('SMTP_PASS', '')
 FROM_EMAIL = os.environ.get('FROM_EMAIL', SMTP_USER)
 
-# DB path
+# DB path — use /tmp on Render free tier (survives worker restarts within same instance)
 DB_PATH = os.environ.get('DB_PATH', '/tmp/invoicechase.db')
 
 # ------------------------------------------------------------------
@@ -214,46 +215,80 @@ def get_email_template(user_id, reminder_type):
     return DEFAULT_SUBJECTS.get(reminder_type, 'Invoice Reminder'), DEFAULT_BODIES.get(reminder_type, '')
 
 # ------------------------------------------------------------------
-# Reminder scheduler
+# Reminder scheduler — request-triggered fallback
 # ------------------------------------------------------------------
 
-scheduler = BackgroundScheduler()
+_scheduler_started = False
+
+def start_scheduler():
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    try:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            func=_run_reminder_check,
+            trigger=IntervalTrigger(minutes=15),
+            id='reminder_check',
+            replace_existing=True
+        )
+        scheduler.start()
+        _scheduler_started = True
+        print("[SCHEDULER] Started background reminder scheduler")
+    except Exception as e:
+        print(f"[SCHEDULER] Could not start: {e}")
+
+def _run_reminder_check():
+    """Wrapper so we can call it outside app context"""
+    with app.app_context():
+        check_and_send_reminders()
 
 def check_and_send_reminders():
-    with app.app_context():
-        now = datetime.now()
-        conn = get_db()
-        reminders = conn.execute('''
-            SELECT r.*, i.client_name, i.client_email, i.amount, i.due_date,
-                   i.description, i.status, u.name as user_name, u.email as user_email, i.user_id
-            FROM reminders r
-            JOIN invoices i ON r.invoice_id = i.id
-            JOIN users u ON i.user_id = u.id
-            WHERE r.sent_at IS NULL
-            AND r.scheduled_for <= ?
-            AND i.status = 'unpaid'
-        ''', (now,)).fetchall()
-        conn.close()
+    now = datetime.now()
+    conn = get_db()
+    reminders = conn.execute('''
+        SELECT r.*, i.client_name, i.client_email, i.amount, i.due_date,
+               i.description, i.status, u.name as user_name, u.email as user_email, i.user_id
+        FROM reminders r
+        JOIN invoices i ON r.invoice_id = i.id
+        JOIN users u ON i.user_id = u.id
+        WHERE r.sent_at IS NULL
+        AND r.scheduled_for <= ?
+        AND i.status = 'unpaid'
+    ''', (now,)).fetchall()
+    conn.close()
 
-        for r in reminders:
-            subject, body_template = get_email_template(r['user_id'], r['reminder_type'])
-            body = body_template.format(
-                client_name=r['client_name'],
-                amount=f"${r['amount']:.2f}",
-                due_date=r['due_date'],
-                description=r['description'] or '',
-                user_name=r['user_name'] or r['user_email']
-            )
-            if send_email(r['client_email'], subject, body):
-                conn2 = get_db()
-                conn2.execute('UPDATE reminders SET sent_at = ? WHERE id = ?',
-                              (datetime.now(), r['id']))
-                conn2.commit()
-                conn2.close()
+    for r in reminders:
+        subject, body_template = get_email_template(r['user_id'], r['reminder_type'])
+        body = body_template.format(
+            client_name=r['client_name'],
+            amount=f"${r['amount']:.2f}",
+            due_date=r['due_date'],
+            description=r['description'] or '',
+            user_name=r['user_name'] or r['user_email']
+        )
+        if send_email(r['client_email'], subject, body):
+            conn2 = get_db()
+            conn2.execute('UPDATE reminders SET sent_at = ? WHERE id = ?',
+                          (datetime.now(), r['id']))
+            conn2.commit()
+            conn2.close()
 
-# Run every 15 minutes
-scheduler.add_job(func=check_and_send_reminders, trigger='interval', minutes=15, id='reminder_check')
-scheduler.start()
+# Cron endpoint — call this every 15 min via Render cron or external service
+@app.route('/cron/reminders')
+def cron_reminders():
+    check_and_send_reminders()
+    return 'ok', 200
+
+# Also trigger reminder check on any dashboard load (passive trigger)
+@app.before_request
+def maybe_check_reminders():
+    if request.endpoint == 'dashboard' and 'user_id' in session:
+        check_and_send_reminders()
+
+# Start scheduler in this process (single-worker dev; Render uses gunicorn single worker on free tier)
+if os.environ.get('FLASK_DEBUG') == '1' or os.environ.get('RUN_SCHEDULER') == '1':
+    start_scheduler()
 
 # ------------------------------------------------------------------
 # Routes
