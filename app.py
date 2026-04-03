@@ -815,20 +815,31 @@ def support():
             return render_template('support.html', user=user)
 
         conn = get_db()
-        cur = conn.execute('''
-            INSERT INTO support_tickets (user_id, email, subject, body)
-            VALUES (?, ?, ?, ?)
-        ''', (session.get('user_id'), email, subject, body))
-        ticket_id = cur.lastrowid
-        conn.commit()
-        conn.close()
+        try:
+            cur = conn.execute('''
+                INSERT INTO support_tickets (user_id, email, subject, body)
+                VALUES (?, ?, ?, ?)
+            ''', (session.get('user_id'), email, subject, body))
+            ticket_id = cur.lastrowid
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            print(f"[TICKET INSERT ERROR] {e}")
+            flash(f'Database error: {e}', 'error')
+            return render_template('support.html', user=user)
 
         log_audit('ticket_created', user_id=session.get('user_id'),
                   actor_email=email, target_type='ticket', target_id=ticket_id,
                   metadata={'subject': subject}, ip_address=get_client_ip())
 
         flash(f'Thank you! Your message has been received. (Ticket #{ticket_id})', 'success')
-        return redirect(url_for('support_tickets'))
+        try:
+            return redirect(url_for('support_tickets'))
+        except Exception as e:
+            print(f"[SUPPORT REDIRECT ERROR] {e}")
+            return redirect(url_for('dashboard'))
 
     return render_template('support.html', user=user)
 
