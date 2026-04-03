@@ -971,6 +971,60 @@ def admin_reply_ticket(ticket_id):
     return redirect(url_for('admin_tickets'))
 
 # ------------------------------------------------------------------
+# Database migration endpoint (run once after schema updates)
+# ------------------------------------------------------------------
+@app.route('/admin/migrate')
+def admin_migrate():
+    if os.environ.get('MIGRATION_SECRET') and request.args.get('key') != os.environ.get('MIGRATION_SECRET'):
+        return 'Forbidden', 403
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL,
+                user_id INTEGER,
+                actor_email TEXT,
+                target_type TEXT,
+                target_id INTEGER,
+                metadata TEXT,
+                ip_address TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                email TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                status TEXT DEFAULT 'open',
+                priority TEXT DEFAULT 'normal',
+                assigned_to TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS ticket_replies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket_id INTEGER NOT NULL,
+                author_type TEXT NOT NULL,
+                author_id INTEGER,
+                author_email TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        conn.close()
+        return 'Migration complete: audit_log, support_tickets, ticket_replies created', 200
+    except Exception as e:
+        return f'Migration failed: {e}', 500
+
+# ------------------------------------------------------------------
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG') == '1')
